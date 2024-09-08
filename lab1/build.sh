@@ -2,6 +2,8 @@
 
 mkdir -p build
 
+gcc -S -o build/main.s main.c -lm
+
 gcc -o build/output main.c -lm
 
 if [ $? -eq 0 ]; then
