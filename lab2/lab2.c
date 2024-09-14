@@ -17,7 +17,7 @@ double ln1p_series(double x, long long N) {
 }
 
 int main() {
-    FILE *fp = fopen("out.txt", "a");  // Открываем файл в режиме добавления
+    FILE *fp = fopen("out.txt", "a");
     if (fp == NULL) {
         printf("Error opening file!\n");
         return 1;
