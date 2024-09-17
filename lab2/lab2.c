@@ -3,10 +3,6 @@
 #include <time.h>
 #include <limits.h>
 
-#ifndef OPT_LEVEL
-#define OPT_LEVEL "Unknown"
-#endif
-
 double ln1p_series(double x, long long N) {
     double sum = 0.0;
     for (long long n = 1; n <= N; n++) {
