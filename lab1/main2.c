@@ -2,10 +2,9 @@
 #include <math.h>
 #include <time.h>
 #include <limits.h>
-#include <sys/times.h>  // Для times
-#include <unistd.h>     // Для sysconf
+#include <sys/times.h>  
+#include <unistd.h>     
 
-// Функция для вычисления ln(1 + x) с использованием ряда Тейлора
 double ln1p_series(double x, long long N) {
     double sum = 0.0;
     for (long long n = 1; n <= N; n++) {
@@ -18,8 +17,8 @@ double ln1p_series(double x, long long N) {
 int main() {
     double x;
     long long N;
-    struct tms start, end;  // Для хранения времени
-    long ticks_per_sec = sysconf(_SC_CLK_TCK);  // Количество тиков в секунду
+    struct tms start, end;
+    long ticks_per_sec = sysconf(_SC_CLK_TCK); 
 
     printf("Enter X (-1 < x <= 1): ");
     scanf("%lf", &x);
@@ -39,23 +38,17 @@ int main() {
 
     int continuE = 1;
     while (continuE) {
-        // Измерение времени до выполнения работы
         times(&start);
 
-        // Выполнение вычисления
         double result = ln1p_series(x, N);
 
-        // Измерение времени после выполнения работы
         times(&end);
 
-        // Вычисляем время, потраченное на выполнение работы в пользовательском режиме
         double user_time_taken = (double)(end.tms_utime - start.tms_utime) / ticks_per_sec;
 
-        // Вывод результата и времени
         printf("RES: ln(1 + %lf) ≈ %lf\n", x, result);
         printf("TIME: %lf SEC (User mode)\n", user_time_taken);
 
-        // Спрашиваем пользователя, хочет ли он продолжить
         printf("Enter 1 to continue or 0 to exit: ");
         scanf("%d", &continuE);
     }
