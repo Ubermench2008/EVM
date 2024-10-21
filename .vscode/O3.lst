@@ -1,0 +1,133 @@
+.LC0:
+        .ascii  "%lld\000"
+.LC1:
+        .ascii  "%lf %lf\000"
+main:
+        {
+        push    {r4, r5, r6, r7, lr}
+
+        scanf:
+        movw    r0, #:lower16:.LC0
+        movt    r0, #:upper16:.LC0
+
+        {
+        vpush.64        {d8, d9, d10, d11, d12}
+        sub     sp, sp, #36
+
+        scanf:
+        add     r1, sp, #8 | Вычисляет адрес переменной N
+        bl      __isoc99_scanf
+
+        clock_gettime:
+        movs    r0, #4
+        add     r1, sp, #16 | адрес структуры a
+        bl      clock_gettime
+
+        цикл (n <= N):
+        ldrd    r6, r7, [sp, #8] | Загружает 64-битное значение N
+        cmp     r6, #1 | Проверка, не меньше ли N начального значения цикла n = 1
+        sbcs    r3, r7, #0 | вычитание с учётом флага переноса
+        blt     .L4 | Пропуск цикла, если N < 1 
+ 
+        double xn = x;
+        vmov.f64        d8, #5.0e-1 | 0.5 (x) в вещественный регистр d8
+        adds    r6, r6, #1 | 1 к нижней части n
+        adc     r7, r7, #0 | учитываем флаг переноса
+
+        цикл (n = 1)
+        movs    r4, #1 
+
+        (цикл) xn *= x;
+        vmov.f64        d11, d8 | Копирует значение x из d8 в d11
+
+        цикл (n = 1)
+        movs    r5, #0 | Устанавливает регистр r5 в 0.
+        | начальной значения верхней части n
+
+        double s = 0.0; 
+        vldr.64 d10, .L8 | Загружает 64-битное значение 0.0 из адреса .L8
+
+        double sign = 1.0; 
+        vmov.f64        d9, #1.0e+0 | Загружает значение 1.0 (sign) в вещественный регистр d9
+.L3:
+        s += sign * xn / n;
+        vmul.f64        d12, d9, d8 |Умножает sign (d9) на xn (d8), результат сохраняется в d12
+        mov     r0, r4 |
+        mov     r1, r5 | готовим аргументы для ф-и преобр.
+
+        sign *= -1.0;
+        vneg.f64        d9, d9 | sign = -sign   
+
+        /:
+        bl      __aeabi_l2d | n в double
+        vmov    d6, r0, r1 | из регистров r0 и r1 в вещественный регистр d6
+
+        n++:
+        adds    r4, r4, #1
+
+        xn *= x;
+        vmul.f64        d8, d8, d11 | d8*=d11
+
+        /:
+        vdiv.f64        d7, d12, d6 
+        | sign * xn (d12) / n (d6)
+
+        n++:
+        adc     r5, r5, #0 | Добавляет 0 к верхней части n (r5) с учётом флага переноса из предыдущей инструкции.
+        n<=N:
+        cmp     r5, r7
+        it      eq
+        cmpeq   r4, r6
+
+        s += sign * xn / n;
+        vadd.f64        d10, d10, d7
+
+        bne     .L3
+.L2:
+        clock_gettime
+        add     r1, sp, #24
+        movs    r0, #4
+        bl      clock_gettime
+
+        -:
+        ldr     r2, [sp, #28]
+        ldrd    r0, r3, [sp, #20]
+
+        printf:
+        vstr.64 d10, [sp]
+
+        double ts = (double)(b.tv_sec - a.tv_sec) + 1e-9 * (double)(b.tv_nsec - a.tv_nsec);
+        ldr     r1, [sp, #16]
+        subs    r2, r2, r0
+        vmov    s15, r2 @ int
+        subs    r3, r3, r1
+        vldr.64 d5, .L8+8
+        vcvt.f64.s32    d6, s15
+        vmov    s15, r3 @ int
+
+        printf:
+        movw    r0, #:lower16:.LC1
+        movt    r0, #:upper16:.LC1
+        
+        (:
+        vcvt.f64.s32    d7, s15
+
+        printf:
+        vmla.f64        d7, d6, d5
+        vmov    r2, r3, d7
+        bl      printf
+
+        }   
+        movs    r0, #0
+        add     sp, sp, #36
+        vldm    sp!, {d8-d12}
+        pop     {r4, r5, r6, r7, pc}
+.L4:
+        double s = 0.0;
+        vldr.64 d10, .L8
+        b       .L2
+.L8:
+        .word   0
+        .word   0
+        .word   -400107883
+        .word   1041313291

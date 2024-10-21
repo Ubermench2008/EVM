@@ -1,0 +1,110 @@
+.LC0:
+        .ascii  "%lld\000"
+.LC1:
+        .ascii  "%lf %lf\000"
+main:
+        {
+        push    {r4, r5, r6, r7, lr}  | добавили регистр r6 
+        vpush.64        {d8, d9, d10, d11, d12}
+        sub     sp, sp, #36 | выделяем меньше памяти
+
+        scanf("%lld", &N);   
+        add     r1, sp, #24 | адрес переменной N - второй арг для scanf
+        movw    r0, #:lower16:.LC0 |
+        movt    r0, #:upper16:.LC0 | - первый арг для scanf
+        bl      __isoc99_scanf
+
+        clock_gettime(CLOCK_MONOTONIC_RAW, &a);
+        add     r1, sp, #16 | адрес структуры timespec a
+        movs    r0, #4
+        bl      clock_gettime
+
+        for(long long n = 1; n <= N; n++){ (<=):
+        ldr     r6, [sp, #24] | N_lower
+        ldr     r7, [sp, #28] | N_upper
+        cmp     r6, #1 (N_lower < 1. первоначальное сравнение)
+        sbcs    r3, r7, #0 | r3 = r7 - 0 - (1 - флаг переноса)
+        blt     .L4 | Переход к метке .L4 учитывая сравнение (N < 1)
+        n = 1:
+        adds    r6, r6, #1 | N_lower++ (с обновлением флагов)
+        adc     r7, r7, #0 | N_upper+0 (учитываем флаг переноса, могло произойти переполнение ранее)
+        n:
+        movs    r4, #1 |
+        movs    r5, #0 | n = 1 (нижняя и верхняя часть по 32 бита) r5:r4 = 0:1
+
+        double xn = x;
+        vmov.f64        d9, #5.0e-1 | double xn = x; 0.5 (представление x) в регистр d9
+        vmov.f64        d8, #1.0e+0 | double sign = 1.0; 1.0 (представление sign) в регистр d8
+ 
+        vldr.64 d10, .L7 | double s = 0.0;  
+
+        vmov.f64        d12, d9 | Копирует значение x из d9 в d12 
+.L3:
+        s += sign * xn / n;
+        vmul.f64        d11, d8, d9 | d8 (sign) * d9 (xn) -> d11 (sign * xn)
+        mov     r0, r4 |
+        mov     r1, r5 | младшая и старшая часть n -> r0,r1 для передачи в ф-ю
+        bl      __aeabi_l2d | long long в double (n) 
+        vmov    d6, r0, r1 |результат -> d6
+        vdiv.f64        d7, d11, d6 | d11 (sign * xn) / d6 (n) -> d7
+        vadd.f64        d10, d10, d7 | d7 + d10 (s += (sign * xn) / n) -> d10
+
+        sign *= -1.0;
+        vneg.f64        d8, d8 | sign *= -1.0 
+
+        xn *= x;
+        vmul.f64        d9, d9, d12 | xn *= x -> d9 
+
+        n++:
+        adds    r2, r4, #1 | +1 к нижней части n (r4)
+        adc     r3, r5, #0 | +0 к верхней части, учитывая флаг переноса в пред.
+        mov     r4, r2 | обновляет n_lower 
+        mov     r5, r3 | обновляет n_upper 
+
+
+        n <= N:
+        cmp     r7, r3 | сравнение старших частей N, n
+        it      eq | след инстр только если (r7 == r3) (if-then)
+        cmpeq   r6, r2 |  Если старшие части N и n == => сравнивает r6_lower и r2_lower 
+        bne     .L3 | Если n <= N цикл продолжается
+.L2:    
+        clock_gettime(CLOCK_MONOTONIC_RAW, &b);
+        add     r1, sp, #8 |  Вычисляет адрес структуры b
+        movs    r0, #4 | CLOCK_MONOTONIC_RAW
+        bl      clock_gettime
+
+        double ts = (double)(b.tv_sec - a.tv_sec) + 1e-9 * (double)(b.tv_nsec - a.tv_nsec);
+        ldr     r3, [sp, #12] | b.tv_sec из [sp + 12] в r3
+        ldr     r2, [sp, #20] | a.tv_sec из [sp + 20] в r2
+        subs    r3, r3, r2 | -a.tv_sec +  b.tv_sec, результат сохраняется в r3
+        vmov    s15, r3 @ int | Перемещает результат вычитания (целое число) из r3 в SIMD-регистр s15
+        vcvt.f64.s32    d6, s15 | преобразуем результат из s15 из (unsigned int) -> (double)
+        ldr     r3, [sp, #8] | a.tv_nsec из [r7 + 4] в r2
+        ldr     r2, [sp, #16] | b.tv_nsec из [r7 + 12] в r3
+        subs    r3, r3, r2 | a.tv_nsec - b.tv_nsec, результат в r3
+        vmov    s15, r3 @ int | Перемещает результат в s15, integer
+        vcvt.f64.s32    d7, s15 | s15 в double, результат в d7
+
+        printf("%lf %lf", ts, s);
+        vstr.64 d10, [sp] | d10 на вершину стека (s)
+        vldr.64 d5, .L7+8 | Загрузка константы 1e-9
+        vmla.f64        d7, d6, d5 | d7 = d7 + (d6 * d5)
+        vmov    r2, r3, d7 | d7 -> r2,r3
+        movw    r0, #:lower16:.LC1
+        movt    r0, #:upper16:.LC1
+        bl      printf
+
+        }
+        movs    r0, #0 | Подготовка значения возврата 0 для функции main
+        add     sp, sp, #36 | Освобождение выделенной ранее памяти
+        vldm    sp!, {d8-d12} | Восстановление сохранённых вещественных регистров перед выходом из функции.
+        pop     {r4, r5, r6, r7, pc}
+.L4:
+        double s = 0.0;
+        vldr.64 d10, .L7
+        b       .L2
+.L7:
+        .word   0                | 64-битное число 0.0
+        .word   0                |
+        .word   -400107883       | 1e-9
+        .word   1041313291       |
