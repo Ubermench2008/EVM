@@ -2,10 +2,10 @@
 #include <vector>
 #include <cmath>
 #include <iomanip>
-#include <cblas.h> // Для использования функций BLAS
-#include <chrono>  // Для измерения времени
-#include <random>  // Для генерации случайных чисел
-#include <cstring> // Для memset
+#include <cblas.h>
+#include <chrono> 
+#include <random>
+#include <cstring>
 
 using namespace std;
 using namespace std::chrono;
