@@ -1,82 +1,71 @@
-#include <iostream>
-#include <vector>
-#include <cmath>
-#include <iomanip>
-#include <chrono>
-#include <random>
-#include <cstdlib>
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <string.h>
+#include <time.h>
+#include <stdint.h>
 
-using namespace std;
-using namespace std::chrono;
-
-typedef vector<vector<double>> Matrix;
-
-Matrix createZeroMatrix(int N) {
-    return Matrix(N, vector<double>(N, 0.0));
+double* createZeroMatrix(int N) {
+    double* matrix = (double*)calloc(N * N, sizeof(double));
+    if (matrix == NULL) {
+        exit(EXIT_FAILURE);
+    }
+    return matrix;
 }
 
-Matrix createIdentityMatrix(int N) {
-    Matrix I = createZeroMatrix(N);
+double* createIdentityMatrix(int N) {
+    double* I = createZeroMatrix(N);
     for (int i = 0; i < N; ++i) {
-        I[i][i] = 1.0;
+        I[i * N + i] = 1.0;
     }
     return I;
 }
 
-Matrix transpose(const Matrix& A) {
-    int N = A.size();
-    Matrix AT = createZeroMatrix(N);
+double* transpose(const double* A, int N) {
+    double* AT = createZeroMatrix(N);
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
-            AT[j][i] = A[i][j];
+            AT[j * N + i] = A[i * N + j];
         }
     }
     return AT;
 }
 
-Matrix multiply(const Matrix& A, const Matrix& B) {
-    int N = A.size();
-    Matrix C = createZeroMatrix(N);
+double* multiply(const double* A, const double* B, int N) {
+    double* C = createZeroMatrix(N);
     for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
-            for (int k = 0; k < N; ++k) {
-                C[i][j] += A[i][k] * B[k][j];
+        for (int k = 0; k < N; ++k) {
+            double a_ik = A[i * N + k];
+            for (int j = 0; j < N; ++j) {
+                C[i * N + j] += a_ik * B[k * N + j];
             }
         }
     }
     return C;
 }
 
-Matrix add(const Matrix& A, const Matrix& B) {
-    int N = A.size();
-    Matrix C = createZeroMatrix(N);
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
-            C[i][j] = A[i][j] + B[i][j];
-        }
+double* add(const double* A, const double* B, int N) {
+    double* C = createZeroMatrix(N);
+    for (int i = 0; i < N * N; ++i) {
+        C[i] = A[i] + B[i];
     }
     return C;
 }
 
-Matrix scalarMultiply(double scalar, const Matrix& A) {
-    int N = A.size();
-    Matrix B = createZeroMatrix(N);
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
-            B[i][j] = scalar * A[i][j];
-        }
+double* scalarMultiply(double scalar, const double* A, int N) {
+    double* B = createZeroMatrix(N);
+    for (int i = 0; i < N * N; ++i) {
+        B[i] = scalar * A[i];
     }
     return B;
 }
 
-//||A||_1
-double norm1(const Matrix& A) {
-    int N = A.size();
+double norm1(const double* A, int N) {
     double maxSum = 0.0;
     for (int j = 0; j < N; ++j) {
         double columnSum = 0.0;
         for (int i = 0; i < N; ++i) {
-            columnSum += fabs(A[i][j]);
+            columnSum += fabs(A[i * N + j]);
         }
         if (columnSum > maxSum) {
             maxSum = columnSum;
@@ -85,14 +74,12 @@ double norm1(const Matrix& A) {
     return maxSum;
 }
 
-//|A||_inf
-double normInf(const Matrix& A) {
-    int N = A.size();
+double normInf(const double* A, int N) {
     double maxSum = 0.0;
     for (int i = 0; i < N; ++i) {
         double rowSum = 0.0;
         for (int j = 0; j < N; ++j) {
-            rowSum += fabs(A[i][j]);
+            rowSum += fabs(A[i * N + j]);
         }
         if (rowSum > maxSum) {
             maxSum = rowSum;
@@ -101,129 +88,145 @@ double normInf(const Matrix& A) {
     return maxSum;
 }
 
-void printMatrix(const Matrix& A) {
-    int N = A.size();
-    cout << fixed << setprecision(6);
+void printMatrix(const double* A, int N, const char* description) {
+    printf("%s:\n", description);
     for (int i = 0; i < N; ++i) {
         for (int j = 0; j < N; ++j) {
-            cout << A[i][j] << " ";
+            printf("%10.6lf ", A[i * N + j]);
         }
-        cout << endl;
+        printf("\n");
     }
 }
 
-Matrix generateRandomMatrix(int N, int seed = 0) {
-    Matrix A = createZeroMatrix(N);
-    mt19937 rng(seed);
-    uniform_real_distribution<double> dist(0.0, 100.0);
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
-            A[i][j] = dist(rng);
-        }
+double* generateRandomMatrix(int N, unsigned int seed) {
+    double* A = createZeroMatrix(N);
+    srand(seed);
+    for (int i = 0; i < N * N; ++i) {
+        A[i] = ((double)rand() / RAND_MAX) * 100.0;
     }
     return A;
 }
 
 int main(int argc, char* argv[]) {
     int N, M;
-    
-    bool generateMatrix = false;
-    if (argc > 1 && atoi(argv[1]) == 1) {
-        generateMatrix = true;
+    int generate = 0;
+
+    if (argc > 1) {
+        generate = atoi(argv[1]);
     }
 
-    cout << "Введите размер матрицы N: ";
-    cin >> N;
-    cout << "Введите число членов ряда M: ";
-    cin >> M;
+    printf("Введите N: ");
+    if (scanf("%d", &N) != 1 || N <= 0) {
+        fprintf(stderr, "Некорректный ввод N\n");
+        return EXIT_FAILURE;
+    }
 
-    Matrix A = createZeroMatrix(N);
+    printf("Введите M: ");
+    if (scanf("%d", &M) != 1 || M <= 0) {
+        fprintf(stderr, "Некорректный ввод M\n");
+        return EXIT_FAILURE;
+    }
 
-    if (generateMatrix) {
+    double* A = NULL;
+
+    if (generate == 1) {
         A = generateRandomMatrix(N, time(NULL));
-        cout << "Сгенерированная матрица A:" << endl;
-
         if (N <= 20){
-            printMatrix(A);
-        } else{
-            cout << "Матрица слишком большая(.. " << endl;
-        }   
+            printMatrix(A, N, "Сгенерированная матрица A");
+        }
     } else {
-        cout << "Введите элементы матрицы A (" << N * N << " элементов):" << endl;
-        for (int i = 0; i < N; ++i) {
-            for (int j = 0; j < N; ++j) {
-                cin >> A[i][j];
+        A = createZeroMatrix(N);
+        printf("Введите матрицу A (%d элементов):\n", N * N);
+        for (int i = 0; i < N * N; ++i) {
+            if (scanf("%lf", &A[i]) != 1) {
+                free(A);
+                return EXIT_FAILURE;
             }
         }
     }
 
-    auto start = high_resolution_clock::now();
+    struct timespec start, end;
+    if (clock_gettime(CLOCK_MONOTONIC, &start) == -1) {
+        free(A);
+        return EXIT_FAILURE;
+    }
 
-    double normA1 = norm1(A);
-    double normAInf = normInf(A);
+    double normA1 = norm1(A, N);
+    double normAInf = normInf(A, N);
     double s = normA1 * normAInf;
 
-    //B = (1/s) * A^T
-    Matrix AT = transpose(A);
-    Matrix B = scalarMultiply(1.0 / s, AT);
+    double* AT = transpose(A, N);
+    double* B = scalarMultiply(1.0 / s, AT, N);
+    free(AT);
 
-    //R = I - B * A
-    Matrix BA = multiply(B, A);
-    Matrix I = createIdentityMatrix(N);
-    Matrix R = add(I, scalarMultiply(-1.0, BA));
+    double* BA = multiply(B, A, N);
+    double* I = createIdentityMatrix(N);
+    double* BA_neg = scalarMultiply(-1.0, BA, N);
+    free(BA);
 
-    //S = I + R + R^2 + ... + R^(M-1)
-    Matrix S = createIdentityMatrix(N);
-    Matrix R_power = createIdentityMatrix(N);
+    double* R = add(I, BA_neg, N);
+    free(BA_neg);
+    free(I);
+
+    double* S = createIdentityMatrix(N);
+    double* R_power = createIdentityMatrix(N);
 
     for (int k = 1; k < M; ++k) {
-        R_power = multiply(R_power, R); //R_power = R^k
-        S = add(S, R_power); //S += R_power
+        double* temp = multiply(R_power, R, N);
+        double* new_S = add(S, temp, N);
+        free(S);
+        free(temp);
+        S = new_S;
+    }
+    free(R_power);
+
+    double* A_inv = multiply(S, B, N);
+    free(S);
+    free(B);
+
+    if (clock_gettime(CLOCK_MONOTONIC, &end) == -1) {
+        free(A_inv);
+        free(A);
+        return EXIT_FAILURE;
     }
 
-    //A_inv = S * B
-    Matrix A_inv = multiply(S, B);
-
-    auto end = high_resolution_clock::now();
-    auto duration = duration_cast<milliseconds>(end - start);
-
-    cout << "A_inv:" << endl;
+    double elapsed_time = (end.tv_sec - start.tv_sec) * 1000.0;
+    elapsed_time += (end.tv_nsec - start.tv_nsec) / 1.0e6;
 
     if (N <= 20){
-        printMatrix(A_inv);
-    } else{
-        cout << "Матрица слишком большая(.. " << endl;
+        printMatrix(A_inv, N, "A_inv");
     }
 
-    cout << "Время вычислений: " << duration.count() << " миллисекунд" << endl;
+    printf("Время вычислений: %.3lf миллисекунд\n", elapsed_time);
 
-    Matrix product = multiply(A_inv, A);
+    double* product = multiply(A_inv, A, N);
 
     if (N <= 20){
-        printMatrix(product);
-    } else{
-        cout << "Матрица слишком большая(.. " << endl;
+        printMatrix(product, N, "A_inv * A");
     }
 
-    
-    Matrix Identity = createIdentityMatrix(N);
+    double* Identity = createIdentityMatrix(N);
 
     int ind1 = 0;
     int ind2 = 0;
     double maxDifference = 0.0;
-    for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < N; ++j) {
-            double diff = fabs(product[i][j] - Identity[i][j]);
-            if (diff > maxDifference) {
-                maxDifference = diff;
-                ind1 = i;
-                ind2 = j;
-            }
+    for (int i = 0; i < N * N; ++i) {
+        double diff = fabs(product[i] - Identity[i]);
+        if (diff > maxDifference) {
+            maxDifference = diff;
+            ind1 = i / N;
+            ind2 = i % N;
         }
     }
 
-    cout << "Максимальный модуль разности между (A_inv * A) и единичной матрицей: " << fixed << setprecision(6) << maxDifference << endl;
-    cout << "Ячейка: [" << ind1 << ',' << ind2 << "]" << endl;
+    printf("Max модуль разности (A_inv * A) и I: %.6lf\n", maxDifference);
+    printf("Ячейка: [%d, %d]\n", ind1, ind2);
+
+    free(A);
+    free(R);
+    free(A_inv);
+    free(product);
+    free(Identity);
 
     return 0;
 }
