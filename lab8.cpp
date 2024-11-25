@@ -10,7 +10,7 @@
 
 using namespace std;
 
-enum TraversalMethod { Forward = 0, Reverse = 1, Random = 2 };
+enum class TraversalMethod { Forward = 0, Reverse = 1, Random = 2 };
 
 uint64_t rdtsc() {
     unsigned int lo, hi;
